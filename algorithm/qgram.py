@@ -76,7 +76,13 @@ def cosQgramDistance(str1, str2, q=2):
 
 
 if __name__ == "__main__":
-    print(cosQgramDistance(
-        'dbcdef',
-        'ddddd'
-    ))
+    strings = ["Jun  9 06:06:51 combo anacron: anacron startup succeeded",
+               "Jun  9 06:06:51 combo atd: atd startup succeeded",
+               "Jun  9 06:06:51 combo readahead: Starting background readahead:",
+               "Jun  9 06:06:51 combo rc: Starting readahead:  succeeded",
+               "Jun  9 06:06:52 combo messagebus: messagebus startup succeeded"]
+    
+    d = "Jun  9 06:07:06 combo httpd: httpd startup succeeded"
+
+    for i in strings:
+        print(cosQgramDistance(d,i))

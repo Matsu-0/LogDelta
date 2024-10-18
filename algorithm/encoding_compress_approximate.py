@@ -215,6 +215,10 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
     t = perf_counter()
     q = deque()
 
+    t_window = 0 #
+    t_encoding = 0 #
+
+
     new_line_flag = 0
 
     df = pd.DataFrame(columns=('method','another_line','begin', 'operation_size', 
@@ -222,6 +226,7 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
     input = open(input_path, "rb" )
 
     while (True):
+        t_tmp = perf_counter() #
         if new_line_flag == 1:
             line = next_line
         else:
@@ -249,6 +254,9 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
                 distance = tmpd
                 begin = i
 
+        t_window += perf_counter() - t_tmp #
+        t_tmp = perf_counter() #
+
         if (begin == -1 or distance >= threshold):
             df = pd.concat([df,pd.DataFrame({'method':[1],'another_line':[new_line_flag],
                                         'sub_string':[line]})], ignore_index=True)
@@ -272,7 +280,9 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
                                 'position_list':[position_list], 'd_length':[d_length],'i_length':[i_length], 'sub_string':[sub_string]})
 
                 df = pd.concat([df, df2], ignore_index=True)
-        
+
+        t_encoding += perf_counter() - t_tmp #
+        t_tmp = perf_counter() #
 
         if (len(q) < window_size):
             q.append(line)
@@ -280,7 +290,14 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
             q.popleft()
             q.append(line)
 
-    get_encoding_byte_array(df, output_path, window_size, block_size)
+        t_window += perf_counter() - t_tmp #
+
+    t_tmp = perf_counter() #
+
+    get_encoding_byte_array(df, output_path, window_size)
+
+    t_write = perf_counter() - t_tmp #
+    print("Sliding window time:", t_window, "Encoding time:", t_encoding, "Write time:", t_write) #
 
     t = perf_counter() - t
 
