@@ -162,8 +162,8 @@ cython_debug/
 #.idea/
 
 /algorithm/__pycache__/
+/algorithm/decoding*
 /utils/__pycache__/
 /result
 /.venv
 /.DS_Store
-/test*

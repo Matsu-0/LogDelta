@@ -26,9 +26,9 @@ class newOutArray:
             self.current_bits = 0
             self.bit_count = 0
     
-    def write(self, file_path: str):
+    def write(self, file_path: str, mode="wb"):
         self.pack()
-        with open(file_path, "wb") as handle:
+        with open(file_path, mode) as handle:
             handle.write(self.byte_stream)
 
 

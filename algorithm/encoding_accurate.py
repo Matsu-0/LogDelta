@@ -8,7 +8,7 @@ from struct import pack
 
 from utils.encoding import rle_compress, bit_packing_compress
 from utils.bytearray import newOutArray
-from algorithm.improved_edit_distance import compute_edit_distance, build_path
+from algorithm.variable_substitution_distance import compute_edit_distance, build_path
 from algorithm.qgram import cosQgramDistance
 
 def get_encoding_byte_array(df, output_path, window_size, block_size = 1024):

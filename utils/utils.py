@@ -1,3 +1,6 @@
+import os
+import shutil
+
 def binary_search(list, item):
     l = 0
     h = len(list) - 1
@@ -15,3 +18,8 @@ def get_min(distanceList):
     value = min(distanceList)
     index = distanceList.index(value)
     return value, index
+
+def mkdir(target_dir: str):
+    if os.path.exists(target_dir):
+        shutil.rmtree(target_dir)
+    os.makedirs(target_dir)
