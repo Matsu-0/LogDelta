@@ -12,14 +12,14 @@ from utils.bytearray import newOutArray
 from algorithm.approximate_algorithm import get_Qgram_match_oplist
 from algorithm.qgram import cosQgramDistance
 
-def get_encoding_byte_array(df, output_path, window_size, block_size = 1024):
+def get_encoding_byte_array(df, output_path):
+
+    encoding_block = 1024
 
     stream = newOutArray()
 
     df0 = df[df['method'] == 0]
     df1 = df[df['method'] == 1]
-
-    stream.encode(window_size, 16)
 
     stream.encode(len(df0), 16)
     stream.encode(len(df1), 16)
@@ -113,9 +113,9 @@ def get_encoding_byte_array(df, output_path, window_size, block_size = 1024):
             for l in length:
                 leng_list.append(l)
 
-        for i in range(max(int((len(leng_list) - 1) / block_size), 1)):
+        for i in range(max(int((len(leng_list) - 1) / encoding_block), 1)):
             l_bytes = bytes()
-            l_list = leng_list[i * block_size: (i + 1) * block_size]
+            l_list = leng_list[i * encoding_block: (i + 1) * encoding_block]
             bit_packing_string = bit_packing_compress(l_list)
             length = ceil(len(bit_packing_string) / 8)
             while (len(bit_packing_string) < length * 8):
@@ -151,9 +151,9 @@ def get_encoding_byte_array(df, output_path, window_size, block_size = 1024):
 
         p_begin_bytes = bytes()
 
-        for i in range(max(int((len(p_begin_list) - 1) / block_size), 1)):
+        for i in range(max(int((len(p_begin_list) - 1) / encoding_block), 1)):
             p_bytes = bytes()
-            p_list = p_begin_list[i * block_size : (i+1) * block_size]
+            p_list = p_begin_list[i * encoding_block : (i+1) * encoding_block]
             bit_packing_string = bit_packing_compress(p_list)
             length = ceil(len(bit_packing_string) / 8)
             while (len(bit_packing_string) < length * 8):
@@ -170,9 +170,9 @@ def get_encoding_byte_array(df, output_path, window_size, block_size = 1024):
             stream.encode(byte, 8)
 
         p_delta_bytes = bytes()
-        for i in range(max(int((len(p_delta_list) - 1) / block_size), 1)):
+        for i in range(max(int((len(p_delta_list) - 1) / encoding_block), 1)):
             p_bytes = bytes()
-            p_list = p_delta_list[i * block_size : (i+1) * block_size]
+            p_list = p_delta_list[i * encoding_block : (i+1) * encoding_block]
             bit_packing_string = bit_packing_compress(p_list)
             length = ceil(len(bit_packing_string) / 8)
             while (len(bit_packing_string) < length * 8):
@@ -180,6 +180,7 @@ def get_encoding_byte_array(df, output_path, window_size, block_size = 1024):
             p_bytes += pack('h', length)
             for i in range(length):
                 bf = int(bit_packing_string[i * 8: (i + 1) * 8], 2)
+                # print("bf:",bf)
                 p_bytes += pack('B', bf)
             p_delta_bytes += p_bytes
         p_delta_bytes = gzip.compress(p_delta_bytes)
@@ -205,19 +206,14 @@ def get_encoding_byte_array(df, output_path, window_size, block_size = 1024):
     for byte in string_compress:
         stream.encode(byte, 8)
     
-    stream.write(output_path)
+    stream.write(output_path, "ab")
     return 
+    # return stream
 
 
-def main_encoding_compress(input_path, output_path, window_size= 8, log_length = 256, threshold = 0.035, block_size = 1024):
-    print('Approx Compress:', input_path)
-
+def main_encoding_compress(input_path, output_path, window_size= 8, log_length = 256, threshold = 0.035, block_size = 32768):
     t = perf_counter()
     q = deque()
-
-    t_window = 0 #
-    t_encoding = 0 #
-
 
     new_line_flag = 0
 
@@ -225,79 +221,79 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
                         'position_list', 'd_length', 'i_length', 'sub_string'))
     input = open(input_path, "rb" )
 
+    # write encoding head
+    stream = newOutArray()
+    stream.encode(window_size, 16)
+    stream.encode(log_length, 16)
+    stream.encode(block_size, 16)
+    stream.write(output_path)
+
+    loop_end = False
     while (True):
-        t_tmp = perf_counter() #
-        if new_line_flag == 1:
-            line = next_line
-        else:
-            line = input.readline().decode()
-
-        if (len(line) >= log_length):
-            next_line = line[(log_length - 1):]
-            line = line[0:(log_length - 1)]
-            new_line_flag = 1
-        else:
-            new_line_flag = 0
-
-        # check if loop end
-        if (len(line) == 0):
+        if loop_end:
             break
 
-        # data init
-        distance = 1
-        begin = -1
-
-        # estimating the begin of min edit distance
-        for i in range(len(q)):
-            tmpd = cosQgramDistance(q[i], line)
-            if (tmpd < distance):
-                distance = tmpd
-                begin = i
-
-        t_window += perf_counter() - t_tmp #
-        t_tmp = perf_counter() #
-
-        if (begin == -1 or distance >= threshold):
-            df = pd.concat([df,pd.DataFrame({'method':[1],'another_line':[new_line_flag],
-                                        'sub_string':[line]})], ignore_index=True)
-        else:
-            op_list, new_distance = get_Qgram_match_oplist(q[begin], line, 3)
-            if (new_distance > len(line)):
-                df = pd.concat([df,pd.DataFrame({'method':[1],'another_line':[new_line_flag],
-                                        'sub_string':[line]})], ignore_index=True)
+        for index in range(block_size):  
+            if new_line_flag == 1:
+                line = next_line
             else:
-                operation_size = len(op_list)
-                position_list = []
-                d_length = []
-                i_length = []
-                sub_string = []
-                for op in op_list:
-                    position_list.append(op[0])
-                    d_length.append(op[1])
-                    i_length.append(op[2])
-                    sub_string.append(op[3])
-                df2 = pd.DataFrame({'method':[0],'another_line':[new_line_flag],'begin':[begin], 'operation_size':[operation_size], 
-                                'position_list':[position_list], 'd_length':[d_length],'i_length':[i_length], 'sub_string':[sub_string]})
+                line = input.readline().decode()
 
-                df = pd.concat([df, df2], ignore_index=True)
+            if (len(line) >= log_length):
+                next_line = line[(log_length - 1):]
+                line = line[0:(log_length - 1)]
+                new_line_flag = 1
+            else:
+                new_line_flag = 0
 
-        t_encoding += perf_counter() - t_tmp #
-        t_tmp = perf_counter() #
+            # check if loop end
+            if (len(line) == 0):
+                loop_end = True
+                break
 
-        if (len(q) < window_size):
-            q.append(line)
-        else:
-            q.popleft()
-            q.append(line)
+            # data init
+            distance = 1
+            begin = -1
 
-        t_window += perf_counter() - t_tmp #
+            # estimating the begin of min edit distance
+            for i in range(len(q)):
+                tmpd = cosQgramDistance(q[i], line)
+                if (tmpd < distance):
+                    distance = tmpd
+                    begin = i
 
-    t_tmp = perf_counter() #
+            if (begin == -1 or distance >= threshold):
+                df = pd.concat([df,pd.DataFrame({'method':[1],'another_line':[new_line_flag],
+                                            'sub_string':[line]})], ignore_index=True)
+            else:
+                op_list, new_distance = get_Qgram_match_oplist(q[begin], line, 3)
+                if (new_distance > len(line)):
+                    df = pd.concat([df,pd.DataFrame({'method':[1],'another_line':[new_line_flag],
+                                            'sub_string':[line]})], ignore_index=True)
+                else:
+                    operation_size = len(op_list)
+                    position_list = []
+                    d_length = []
+                    i_length = []
+                    sub_string = []
+                    for op in op_list:
+                        position_list.append(op[0])
+                        d_length.append(op[1])
+                        i_length.append(op[2])
+                        sub_string.append(op[3])
+                    df2 = pd.DataFrame({'method':[0],'another_line':[new_line_flag],'begin':[begin], 'operation_size':[operation_size], 
+                                    'position_list':[position_list], 'd_length':[d_length],'i_length':[i_length], 'sub_string':[sub_string]})
 
-    get_encoding_byte_array(df, output_path, window_size)
+                    df = pd.concat([df, df2], ignore_index=True)
+            
 
-    t_write = perf_counter() - t_tmp #
-    print("Sliding window time:", t_window, "Encoding time:", t_encoding, "Write time:", t_write) #
+            if (len(q) < window_size):
+                q.append(line)
+            else:
+                q.popleft()
+                q.append(line)
+
+        get_encoding_byte_array(df, output_path)
 
     t = perf_counter() - t
 
