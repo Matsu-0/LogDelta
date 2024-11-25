@@ -216,9 +216,7 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
     q = deque()
 
     new_line_flag = 0
-
-    df = pd.DataFrame(columns=('method','another_line','begin', 'operation_size', 
-                        'position_list', 'd_length', 'i_length', 'sub_string'))
+    
     input = open(input_path, "rb" )
 
     # write encoding head
@@ -229,11 +227,20 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
     stream.write(output_path)
 
     loop_end = False
+    block_cnt = 0
+
     while (True):
         if loop_end:
             break
 
+        df = pd.DataFrame(columns=('method','another_line','begin', 'operation_size', 
+                        'position_list', 'd_length', 'i_length', 'sub_string'))
+        
+        block_cnt += 1
+        print("Block", block_cnt, "is being compressed.")
+
         for index in range(block_size):  
+            print(index)
             if new_line_flag == 1:
                 line = next_line
             else:

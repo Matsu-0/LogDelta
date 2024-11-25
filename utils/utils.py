@@ -20,6 +20,5 @@ def get_min(distanceList):
     return value, index
 
 def mkdir(target_dir: str):
-    if os.path.exists(target_dir):
-        shutil.rmtree(target_dir)
-    os.makedirs(target_dir)
+    if not os.path.exists(target_dir):
+        os.makedirs(target_dir)
