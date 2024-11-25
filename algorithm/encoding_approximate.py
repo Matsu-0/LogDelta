@@ -240,7 +240,6 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
         print("Block", block_cnt, "is being compressed.")
 
         for index in range(block_size):  
-            print(index)
             if new_line_flag == 1:
                 line = next_line
             else:
