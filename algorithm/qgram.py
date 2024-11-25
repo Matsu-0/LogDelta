@@ -1,6 +1,5 @@
 import numpy as np
 
-
 def getProfiles(string, q=2):
     """Calculate profiles of the given string. 
 

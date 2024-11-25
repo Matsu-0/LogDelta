@@ -8,7 +8,7 @@ from time import perf_counter
 import numpy as np
 from sklearn.cluster import AffinityPropagation, SpectralClustering, DBSCAN
 
-from qgram import getProfiles, cosQgramDistance
+from algorithm.qgram import getProfiles, cosQgramDistance
 
 
 class Cluster:
@@ -201,54 +201,99 @@ def showClusters(result, file=sys.stdout, highlight=True):
             print(f"Cluster {i}:", file=file)
             cluster.printData(file, highlight)
 
-def get_clusters_log(input_path, LIMIT=100):
+# def get_clusters_log(input_path, LIMIT=100):
+#     method = {
+#         "diagonal": np.median,
+#         # "method": "AffinityPropagation",
+#         # "damping": 0.5,
+#         "method": "SpectralClustering",
+#         "n_clusters": 20,
+#         # "method": "DBSCAN",
+#         # "eps": 0.2,
+#         # "normalized": True
+#     }
+
+#     new_log_index = []
+#     new_log_set = []
+
+#     with open(input_path, "r", encoding='utf-8') as handle:
+#         # t = perf_counter()
+#         while (True):
+#             limit = itertools.takewhile(lambda n: n < LIMIT, itertools.count())
+#             lines = zip(limit, handle)
+#             lines = [line.strip() for _, line in lines]
+#             if (len(lines) == 0):
+#                 break
+
+#             profiles = [getProfiles(line) for line in lines]
+
+#             model, clusters = clustering(profiles, cosQgramDistance, lines, **method)
+#             # print(clusters)
+#             # showClusters(clusters)
+#             for cluster in clusters:
+#                 logset = cluster.getData()
+#                 # print(logset)
+#                 for log in logset:
+#                     new_log_index.append(log[0])
+#                     new_log_set.append(log[1])
+
+#         return new_log_index, new_log_set
+
+def get_line_list(input_path):
+    1
+
+
+def get_clusters_log(line_list, LIMIT=100):
     method = {
         "diagonal": np.median,
         # "method": "AffinityPropagation",
         # "damping": 0.5,
-        "method": "SpectralClustering",
-        "n_clusters": 20,
-        # "method": "DBSCAN",
-        # "eps": 0.2,
-        # "normalized": True
+        # "method": "SpectralClustering",
+        # "n_clusters": 20,
+        "method": "DBSCAN",
+        "eps": 0.2,
+        "normalized": True
     }
 
     new_log_index = []
     new_log_set = []
 
-    with open(input_path, "r", encoding='utf-8') as handle:
-        # t = perf_counter()
-        while (True):
-            limit = itertools.takewhile(lambda n: n < LIMIT, itertools.count())
-            lines = zip(limit, handle)
-            lines = [line.strip() for _, line in lines]
-            if (len(lines) == 0):
-                break
+    index = 0
 
-            profiles = [getProfiles(line) for line in lines]
+    while True:
+        print((index + 1) * LIMIT)
+        if len(line_list) >= (index + 1) * LIMIT:
+            now_line_list = line_list[index * LIMIT : (index + 1) * LIMIT]
+        else:
+            now_line_list = line_list[index * LIMIT : ]
+        
+        # now_line_list = [line.strip() for _, line in now_line_list]
 
-            model, clusters = clustering(profiles, cosQgramDistance, lines, **method)
-            # print(clusters)
-            # showClusters(clusters)
-            for cluster in clusters:
-                logset = cluster.getData()
-                # print(logset)
-                for log in logset:
-                    new_log_index.append(log[0])
-                    new_log_set.append(log[1])
+        if (len(now_line_list) == 0):
+            break
 
-        # print(new_log_index)
-        # print(new_log_set)
-        # print(len(new_log_set))
-        # t = perf_counter() - t
-        # print("cluster time", t)
+        profiles = [getProfiles(line) for line in now_line_list]
 
-        return new_log_index, new_log_set
+        model, clusters = clustering(profiles, cosQgramDistance, now_line_list, **method)
+        # showClusters(clusters)
+
+        for cluster in clusters:
+            logset = cluster.getData()
+            # print(logset)
+            for log in logset:
+                new_log_index.append(log[0])
+                new_log_set.append(log[1])
+        index += 1
+
+    return new_log_index, new_log_set
+
 
 
 if __name__ == "__main__":
     input_path = "./datasets/test1_data_size/Linux_10000.txt"
-    log_index, log_set = get_clusters_log(input_path)
+    log_list = ["111", "112", "93833", "20202", "202", "1224"]
+    # log_index, log_set = get_clusters_log(input_path)
+    log_index, log_set = get_clusters_log(log_list)
     # print(log_index)
-    print(len(log_set))
+    print(log_set)
     

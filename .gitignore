@@ -167,3 +167,4 @@ cython_debug/
 /result
 /.venv
 /.DS_Store
+/test.py

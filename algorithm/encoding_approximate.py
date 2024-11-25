@@ -11,6 +11,7 @@ from utils.encoding import rle_compress, bit_packing_compress
 from utils.bytearray import newOutArray
 from algorithm.approximate_algorithm import get_Qgram_match_oplist
 from algorithm.qgram import cosQgramDistance
+from algorithm.clustering import get_clusters_log
 
 def get_encoding_byte_array(df, output_path):
 
@@ -228,28 +229,40 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
     stream.encode(block_size, 16)
     stream.write(output_path)
 
+    block_cnt = 0
+
     loop_end = False
     while (True):
         if loop_end:
             break
 
-        for index in range(block_size):  
-            if new_line_flag == 1:
-                line = next_line
-            else:
-                line = input.readline().decode()
+        line_flag = []
+        line_list = []
 
-            if (len(line) >= log_length):
-                next_line = line[(log_length - 1):]
-                line = line[0:(log_length - 1)]
-                new_line_flag = 1
-            else:
-                new_line_flag = 0
+        index = 0
 
-            # check if loop end
+        while index < block_size:
+            line = input.readline().decode()
+
             if (len(line) == 0):
                 loop_end = True
                 break
+
+            while len(line) >= log_length:
+                line_list.append(line[0:(log_length - 1)])
+                line = line[(log_length - 1):]
+                line_flag.append(1)
+                index += 1
+            
+            line_list.append(line)
+            line_flag.append(0)
+            index += 1
+
+        _, line_list = get_clusters_log(line_list)
+
+        print("Block", block_cnt, "End Clustring")
+        
+        for line in line_list:
 
             # data init
             distance = 1
@@ -294,6 +307,7 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
                 q.append(line)
 
         get_encoding_byte_array(df, output_path)
+        block_cnt += 1
 
     t = perf_counter() - t
 
