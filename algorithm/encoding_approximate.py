@@ -226,6 +226,15 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
     stream.encode(block_size, 16)
     stream.write(output_path)
 
+    df = pd.DataFrame(columns=('method',
+                               'another_line',
+                               'begin', 
+                               'operation_size', 
+                               'position_list', 
+                               'd_length', 
+                               'i_length', 
+                               'sub_string'))
+
     loop_end = False
     block_cnt = 0
 
@@ -233,29 +242,31 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
         if loop_end:
             break
 
-        df = pd.DataFrame(columns=('method','another_line','begin', 'operation_size', 
-                        'position_list', 'd_length', 'i_length', 'sub_string'))
-        
-        block_cnt += 1
-        print("Block", block_cnt, "is being compressed.")
+        line_flag = []
+        line_list = []
 
-        for index in range(block_size):  
-            if new_line_flag == 1:
-                line = next_line
-            else:
-                line = input.readline().decode()
+        index = 0
 
-            if (len(line) >= log_length):
-                next_line = line[(log_length - 1):]
-                line = line[0:(log_length - 1)]
-                new_line_flag = 1
-            else:
-                new_line_flag = 0
+        while index < block_size:
+            line = input.readline().decode()
 
-            # check if loop end
             if (len(line) == 0):
                 loop_end = True
                 break
+
+            while len(line) >= log_length:
+                line_list.append(line[0:(log_length - 1)])
+                line = line[(log_length - 1):]
+                line_flag.append(1)
+                index += 1
+            
+            line_list.append(line)
+            line_flag.append(0)
+            index += 1
+
+        print("Block", block_cnt, "End Clustring")
+        
+        for line in line_list:
 
             # data init
             distance = 1
@@ -269,13 +280,15 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
                     begin = i
 
             if (begin == -1 or distance >= threshold):
-                df = pd.concat([df,pd.DataFrame({'method':[1],'another_line':[new_line_flag],
-                                            'sub_string':[line]})], ignore_index=True)
+                df = pd.concat([df,pd.DataFrame({'method':[1],
+                                                 'another_line':[new_line_flag],
+                                                 'sub_string':[line]})], ignore_index=True)
             else:
                 op_list, new_distance = get_Qgram_match_oplist(q[begin], line, 3)
                 if (new_distance > len(line)):
-                    df = pd.concat([df,pd.DataFrame({'method':[1],'another_line':[new_line_flag],
-                                            'sub_string':[line]})], ignore_index=True)
+                    df = pd.concat([df,pd.DataFrame({'method':[1],
+                                                     'another_line':[new_line_flag],
+                                                     'sub_string':[line]})], ignore_index=True)
                 else:
                     operation_size = len(op_list)
                     position_list = []
@@ -287,8 +300,14 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
                         d_length.append(op[1])
                         i_length.append(op[2])
                         sub_string.append(op[3])
-                    df2 = pd.DataFrame({'method':[0],'another_line':[new_line_flag],'begin':[begin], 'operation_size':[operation_size], 
-                                    'position_list':[position_list], 'd_length':[d_length],'i_length':[i_length], 'sub_string':[sub_string]})
+                    df2 = pd.DataFrame({'method':[0],
+                                        'another_line':[new_line_flag],
+                                        'begin':[begin], 
+                                        'operation_size':[operation_size], 
+                                        'position_list':[position_list], 
+                                        'd_length':[d_length],
+                                        'i_length':[i_length], 
+                                        'sub_string':[sub_string]})
 
                     df = pd.concat([df, df2], ignore_index=True)
             
@@ -300,6 +319,7 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
                 q.append(line)
 
         get_encoding_byte_array(df, output_path)
+        block_cnt += 1
 
     t = perf_counter() - t
 
