@@ -19,11 +19,16 @@ def add_arguments(argparser):
                            type=str,
                            required=True,
                            help="Output dir")
-    
+
     argparser.add_argument("-e",
                            default='A',
                            type=str,
                            help="Encode mode, E for accurate and A for approx")
+    
+    argparser.add_argument("-c",
+                           default='lzma',
+                           type=str,
+                           help="General compressor, now support [lzma, gzip, zstd]")
     
     argparser.add_argument("-w",
                            type=int,
@@ -61,6 +66,7 @@ def main():
     log_length = args.l
     block_size = args.b
     distance_threshold = args.t
+    compressor = args.c
 
     file_name = os.path.splitext(os.path.basename(input_path))[0]
 
@@ -73,14 +79,16 @@ def main():
                                              window_size=sliding_window_size,
                                              log_length=log_length,
                                              threshold=distance_threshold,
-                                             block_size=block_size)
+                                             block_size=block_size,
+                                             compressor=compressor)
     elif encoding_type == 'E':
         time = exact.main_encoding_compress(input_path=input_path,
                                             output_path=output_path,
                                             window_size=sliding_window_size,
                                             log_length=log_length,
                                             threshold=distance_threshold,
-                                            block_size=block_size)
+                                            block_size=block_size,
+                                            compressor=compressor)
 
     print("Encoding time is:", time, "s")
 

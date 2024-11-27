@@ -12,7 +12,7 @@ from utils.bytearray import newOutArray
 from algorithm.approximate_algorithm import get_Qgram_match_oplist
 from algorithm.qgram import cosQgramDistance
 
-def get_encoding_byte_array(df, output_path):
+def get_encoding_byte_array(df, output_path, compressor):
 
     encoding_block = 1024
 
@@ -163,7 +163,7 @@ def get_encoding_byte_array(df, output_path):
                 bf = int(bit_packing_string[i * 8: (i + 1) * 8], 2)
                 p_bytes += pack('B', bf)
             p_begin_bytes += p_bytes
-        p_begin_bytes = gzip.compress(p_begin_bytes)
+        # p_begin_bytes = gzip.compress(p_begin_bytes)
 
         stream.encode(len(p_begin_bytes), 16)
         for byte in p_begin_bytes:
@@ -183,7 +183,7 @@ def get_encoding_byte_array(df, output_path):
                 # print("bf:",bf)
                 p_bytes += pack('B', bf)
             p_delta_bytes += p_bytes
-        p_delta_bytes = gzip.compress(p_delta_bytes)
+        # p_delta_bytes = gzip.compress(p_delta_bytes)
 
         stream.encode(len(p_delta_bytes), 16)
         for byte in p_delta_bytes:
@@ -201,17 +201,26 @@ def get_encoding_byte_array(df, output_path):
     for s in sub_string_1:
         sub_string += s
     
-    string_compress = lzma.compress(sub_string.encode())
+    # string_compress = lzma.compress(sub_string.encode())
 
-    for byte in string_compress:
+    # for byte in string_compress:
+    #     stream.encode(byte, 8)
+
+    for byte in sub_string.encode():
         stream.encode(byte, 8)
     
-    stream.write(output_path, "ab")
+
+    if compressor not in ["lzma", "gzip", "zstd"]:
+        print("This general compressor is not currently supported, or the compressor name is wrong. lzma is automatically used for compression.")
+        compressor = "lzma"
+    stream.write(output_path, mode="ab", compressor=compressor)
+
     return 
     # return stream
 
 
-def main_encoding_compress(input_path, output_path, window_size= 8, log_length = 256, threshold = 0.035, block_size = 32768):
+def main_encoding_compress(input_path, output_path, window_size= 8, log_length = 256, 
+                           threshold = 0.035, block_size = 32768, compressor="lzma"):
     t = perf_counter()
     q = deque()
 
@@ -263,8 +272,6 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
             line_list.append(line)
             line_flag.append(0)
             index += 1
-
-        print("Block", block_cnt, "End Clustring")
         
         for line in line_list:
 
@@ -318,7 +325,7 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
                 q.popleft()
                 q.append(line)
 
-        get_encoding_byte_array(df, output_path)
+        get_encoding_byte_array(df, output_path, compressor)
         block_cnt += 1
 
     t = perf_counter() - t

@@ -1,3 +1,7 @@
+import lzma
+import gzip
+import zstandard as zstd
+
 class newOutArray:
     def __init__(self):
         self.byte_length: int = 8
@@ -26,9 +30,15 @@ class newOutArray:
             self.current_bits = 0
             self.bit_count = 0
     
-    def write(self, file_path: str, mode="wb"):
+    def write(self, file_path: str, mode="wb", compressor = "lzma"):
         self.pack()
         with open(file_path, mode) as handle:
+            if compressor == "lzma":
+                self.byte_stream = lzma.compress(self.byte_stream)
+            elif compressor == "gzip":
+                self.byte_stream = gzip.compress(self.byte_stream)
+            elif compressor == "zstd":
+                self.byte_stream = zstd.compress(self.byte_stream)
             handle.write(self.byte_stream)
 
 
