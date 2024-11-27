@@ -263,8 +263,6 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
             line_list.append(line)
             line_flag.append(0)
             index += 1
-
-        print("Block", block_cnt, "End Clustring")
         
         for line in line_list:
 
