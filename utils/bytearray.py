@@ -30,16 +30,27 @@ class newOutArray:
             self.current_bits = 0
             self.bit_count = 0
     
-    def write(self, file_path: str, mode="wb", compressor = "lzma"):
+    def length(self):
         self.pack()
+        return len(self.byte_stream)
+    
+    def write(self, file_path: str, mode="wb", compressor = "none"):
+        self.pack()
+        # print(self.length())
         with open(file_path, mode) as handle:
             if compressor == "lzma":
-                self.byte_stream = lzma.compress(self.byte_stream)
+                comp_stream = lzma.compress(self.byte_stream)
             elif compressor == "gzip":
-                self.byte_stream = gzip.compress(self.byte_stream)
+                comp_stream = gzip.compress(self.byte_stream)
             elif compressor == "zstd":
-                self.byte_stream = zstd.compress(self.byte_stream)
-            handle.write(self.byte_stream)
+                comp_stream = zstd.compress(self.byte_stream)
+            elif compressor == "none":
+                comp_stream = self.byte_stream
+            else:
+                print("This general compressor is not currently supported, or the compressor name is wrong. lzma is automatically used for compression.")
+                comp_stream = lzma.compress(self.byte_stream)
+            handle.write(comp_stream)
+            # print(len(comp_stream))
 
 
 class newInArray:

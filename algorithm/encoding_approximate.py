@@ -1,5 +1,3 @@
-import gzip
-import lzma
 import pandas as pd
 from time import perf_counter
 from collections import deque
@@ -60,44 +58,33 @@ def get_encoding_byte_array(df, output_path, compressor):
     # encode begin by bit packing
     begins = df0['begin'].tolist()
 
-    begins_bytes = bytes()
     if len(begins) == 0:
         stream.encode(0, 16)
     else:
         bit_packing_string = bit_packing_compress(begins)
-        length = ceil(len(bit_packing_string) / 8)
+        leng = ceil(len(bit_packing_string) / 8)
         while (len(bit_packing_string) < length * 8):
             bit_packing_string += '0'
-        begins_bytes += pack('h', length)
-        for i in range(length):
+        stream.encode(leng, 16)
+        for i in range(leng):
             bf = int(bit_packing_string[i * 8: (i + 1) * 8], 2)
-            begins_bytes += pack('B', bf)
-        begins_bytes = gzip.compress(begins_bytes)
+            stream.encode(bf, 8)
 
-        stream.encode(len(begins_bytes), 16)
-        for byte in begins_bytes:
-            stream.encode(byte, 8)
 
     # encode operation size by bit packing
     operation_size = df0['operation_size'].tolist()
 
-    operation_bytes = bytes()
     if len(operation_size) == 0:
         stream.encode(0, 16)
     else:
         bit_packing_string = bit_packing_compress(operation_size)
-        length = ceil(len(bit_packing_string) / 8)
-        while (len(bit_packing_string) < length * 8):
+        leng = ceil(len(bit_packing_string) / 8)
+        while (len(bit_packing_string) < leng * 8):
             bit_packing_string += '0'
-        operation_bytes += pack('h', length)
-        for i in range(length):
+        stream.encode(leng, 16)
+        for i in range(leng):
             bf = int(bit_packing_string[i * 8: (i + 1) * 8], 2)
-            operation_bytes += pack('B', bf)
-        operation_bytes = gzip.compress(operation_bytes)
-
-        stream.encode(len(operation_bytes), 16)
-        for byte in operation_bytes:
-            stream.encode(byte, 8)
+            stream.encode(bf, 8)
 
 
     # encode length by bit packing
@@ -105,7 +92,6 @@ def get_encoding_byte_array(df, output_path, compressor):
     i_length = df0['i_length'].tolist()
     length_list = d_length + i_length
 
-    # print(length_list)
     if len(length_list) == 0:
         stream.encode(0, 16)
     else:
@@ -113,8 +99,6 @@ def get_encoding_byte_array(df, output_path, compressor):
         for length in length_list:
             for l in length:
                 leng_list.append(l)
-
-        # print(len(leng_list))
         
         for i in range(max(int((len(leng_list) - 1) / encoding_block), 1)):
             l_list = leng_list[i * encoding_block: (i + 1) * encoding_block]
@@ -130,7 +114,6 @@ def get_encoding_byte_array(df, output_path, compressor):
 
     # encode position by bit packing
     position_list = df0['position_list'].tolist()
-    # print(len(position_list))
     if len(position_list) == 0:
         stream.encode(0, 16)
     else:
@@ -182,9 +165,6 @@ def get_encoding_byte_array(df, output_path, compressor):
 
     for byte in sub_string.encode():
         stream.encode(byte, 8)
-
-    # print("string:",newOutArray.length(stream) - stream_length)
-    # stream_length = newOutArray.length(stream)
     
     stream.write(output_path, mode="ab", compressor=compressor)
 
