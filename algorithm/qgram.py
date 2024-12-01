@@ -76,13 +76,17 @@ def cosQgramDistance(str1, str2, q=2):
 
 
 if __name__ == "__main__":
-    strings = ["Jun  9 06:06:51 combo anacron: anacron startup succeeded",
-               "Jun  9 06:06:51 combo atd: atd startup succeeded",
-               "Jun  9 06:06:51 combo readahead: Starting background readahead:",
-               "Jun  9 06:06:51 combo rc: Starting readahead:  succeeded",
-               "Jun  9 06:06:52 combo messagebus: messagebus startup succeeded"]
+    # strings = ["Jun  9 06:06:51 combo anacron: anacron startup succeeded",
+    #            "Jun  9 06:06:51 combo atd: atd startup succeeded",
+    #            "Jun  9 06:06:51 combo readahead: Starting background readahead:",
+    #            "Jun  9 06:06:51 combo rc: Starting readahead:  succeeded",
+    #            "Jun  9 06:06:52 combo messagebus: messagebus startup succeeded"]
     
-    d = "Jun  9 06:07:06 combo httpd: httpd startup succeeded"
+    # d = "Jun  9 06:07:06 combo httpd: httpd startup succeeded"
 
-    for i in strings:
-        print(cosQgramDistance(d,i))
+    # for i in strings:
+    #     print(cosQgramDistance(d,i))
+
+    s1 = "[Sun Jun 19 12:05:56 2005] [error] [client 220.170.88.36] Directory index forbidden by rule: /var/www/html/"
+    s2 = "[Sun Jun 19 12:05:56 2005] [error] [client 220.170.88.36] Directory index forbidden by rule: /var/www/htms"
+    print(cosQgramDistance(s1, s2))

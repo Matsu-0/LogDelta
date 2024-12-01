@@ -168,3 +168,4 @@ cython_debug/
 /.venv
 /.DS_Store
 /datasets/targetPath.csv
+/get_buckets.py

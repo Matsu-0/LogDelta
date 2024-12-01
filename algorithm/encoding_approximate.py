@@ -1,8 +1,5 @@
-import gzip
-import lzma
 import pandas as pd
 from time import perf_counter
-from collections import deque
 from math import ceil
 from cmath import inf
 from struct import pack
@@ -12,17 +9,33 @@ from utils.bytearray import newOutArray
 from algorithm.approximate_algorithm import get_Qgram_match_oplist
 from algorithm.qgram import cosQgramDistance
 
-def get_encoding_byte_array(df, output_path, compressor):
+def get_encoding_byte_array(bucket_index_list, df, output_path, compressor):
 
     encoding_block = 1024
 
     stream = newOutArray()
+    stream_length = 0
 
     df0 = df[df['method'] == 0]
     df1 = df[df['method'] == 1]
 
-    stream.encode(len(df0), 16)
-    stream.encode(len(df1), 16)
+    # encode bucket index
+    if len(bucket_index_list) == 0:
+        stream.encode(0, 16)
+    else:
+        for i in range(max(int((len(bucket_index_list) - 1) / encoding_block), 1)):
+            b_list = bucket_index_list[i * encoding_block: (i + 1) * encoding_block]
+            bit_packing_string = bit_packing_compress(b_list)
+            leng = ceil(len(bit_packing_string) / 8)
+            while (len(bit_packing_string) < leng * 8):
+                bit_packing_string += '0'
+            stream.encode(leng, 16)
+            for i in range(leng):
+                bf = int(bit_packing_string[i * 8: (i + 1) * 8], 2)
+                stream.encode(bf, 8)
+
+    # print("bucket index:", newOutArray.length(stream) - stream_length)
+    # stream_length = newOutArray.length(stream)
 
     # encode method by rle
     method = df['method'].tolist()
@@ -31,13 +44,16 @@ def get_encoding_byte_array(df, output_path, compressor):
     for i in method:
         method_string += str(i)
     rle_string = rle_compress(method_string)
-    method_length = ceil(len(rle_string) / 8)
-    while (len(rle_string) < method_length * 8):
+    leng = ceil(len(rle_string) / 8)
+    while (len(rle_string) < leng * 8):
         rle_string += '0'
-    stream.encode(method_length, 16)
-    for i in range(method_length):
+    stream.encode(leng, 16)
+    for i in range(leng):
         bf = int(rle_string[i * 8: (i + 1) * 8], 2)
         stream.encode(bf, 8)
+
+    # print("method:",newOutArray.length(stream) - stream_length)
+    # stream_length = newOutArray.length(stream)
 
     # encode another_line by rle
     another_line = df['another_line'].tolist()
@@ -46,95 +62,71 @@ def get_encoding_byte_array(df, output_path, compressor):
     for i in another_line:
         another_line_string += str(i)
     rle_string = rle_compress(another_line_string)
-    line_length = ceil(len(rle_string) / 8)
-    while (len(rle_string) < line_length * 8):
+    leng = ceil(len(rle_string) / 8)
+    while (len(rle_string) < leng * 8):
         rle_string += '0'
-    stream.encode(line_length, 16)
-    for i in range(line_length):
+    stream.encode(leng, 16)
+    for i in range(leng):
         bf = int(rle_string[i * 8: (i + 1) * 8], 2)
         stream.encode(bf, 8)
+
+    # print("line:",newOutArray.length(stream) - stream_length)
+    # stream_length = newOutArray.length(stream)
 
     df0 = df[df['method'] == 0]
     df1 = df[df['method'] == 1]
 
-    # encode begin by bit packing
-    begins = df0['begin'].tolist()
-
-    begins_bytes = bytes()
-    if len(begins) == 0:
-        stream.encode(0, 16)
-    else:
-        bit_packing_string = bit_packing_compress(begins)
-        length = ceil(len(bit_packing_string) / 8)
-        while (len(bit_packing_string) < length * 8):
-            bit_packing_string += '0'
-        begins_bytes += pack('h', length)
-        for i in range(length):
-            bf = int(bit_packing_string[i * 8: (i + 1) * 8], 2)
-            begins_bytes += pack('B', bf)
-        begins_bytes = gzip.compress(begins_bytes)
-
-        stream.encode(len(begins_bytes), 16)
-        for byte in begins_bytes:
-            stream.encode(byte, 8)
-
     # encode operation size by bit packing
     operation_size = df0['operation_size'].tolist()
 
-    operation_bytes = bytes()
     if len(operation_size) == 0:
         stream.encode(0, 16)
     else:
         bit_packing_string = bit_packing_compress(operation_size)
-        length = ceil(len(bit_packing_string) / 8)
-        while (len(bit_packing_string) < length * 8):
+        leng = ceil(len(bit_packing_string) / 8)
+        while (len(bit_packing_string) < leng * 8):
             bit_packing_string += '0'
-        operation_bytes += pack('h', length)
-        for i in range(length):
+        stream.encode(leng, 16)
+        for i in range(leng):
             bf = int(bit_packing_string[i * 8: (i + 1) * 8], 2)
-            operation_bytes += pack('B', bf)
-        operation_bytes = gzip.compress(operation_bytes)
+            stream.encode(bf, 8)
 
-        stream.encode(len(operation_bytes), 16)
-        for byte in operation_bytes:
-            stream.encode(byte, 8)
+    # print("operation:",newOutArray.length(stream) - stream_length)
+    # stream_length = newOutArray.length(stream)
 
-    # encode length by bit packing and gzip
+    # encode length by bit packing
     d_length = df0['d_length'].tolist()
     i_length = df0['i_length'].tolist()
     length_list = d_length + i_length
 
-    length_bytes = bytes()
+    # print(length_list)
     if len(length_list) == 0:
-        stream.encode(0 ,16)
+        stream.encode(0, 16)
     else:
         leng_list = []
         for length in length_list:
             for l in length:
                 leng_list.append(l)
 
+        # print(len(leng_list))
+        
         for i in range(max(int((len(leng_list) - 1) / encoding_block), 1)):
-            l_bytes = bytes()
             l_list = leng_list[i * encoding_block: (i + 1) * encoding_block]
             bit_packing_string = bit_packing_compress(l_list)
-            length = ceil(len(bit_packing_string) / 8)
-            while (len(bit_packing_string) < length * 8):
+            leng = ceil(len(bit_packing_string) / 8)
+            while (len(bit_packing_string) < leng * 8):
                 bit_packing_string += '0'
-            l_bytes += pack('H', length)
-            stream.encode(length, 16)
-            for i in range(length):
+            stream.encode(leng, 16)
+            for i in range(leng):
                 bf = int(bit_packing_string[i * 8: (i + 1) * 8], 2)
-                l_bytes += pack('B', bf)
+                stream.encode(bf, 8)
 
-            length_bytes += l_bytes
-        length_bytes = gzip.compress(length_bytes)
+    # print("length:",newOutArray.length(stream) - stream_length)
+    # stream_length = newOutArray.length(stream)
 
-        stream.encode(len(length_bytes), 16)
-        for byte in length_bytes:
-            stream.encode(byte, 8)
-
-    # encode position by bit packing and gzip
+    # encode position by bit packing
     position_list = df0['position_list'].tolist()
+    # print(len(position_list))
     if len(position_list) == 0:
         stream.encode(0, 16)
     else:
@@ -149,45 +141,31 @@ def get_encoding_byte_array(df, output_path, compressor):
                     p_delta_list.append(p - oldp)
                 oldp = p
 
-        p_begin_bytes = bytes()
-
-        for i in range(max(int((len(p_begin_list) - 1) / encoding_block), 1)):
-            p_bytes = bytes()
+        block_num = ceil(len(p_begin_list) / encoding_block)
+        stream.encode(block_num, 16)
+        for i in range(block_num):
             p_list = p_begin_list[i * encoding_block : (i+1) * encoding_block]
             bit_packing_string = bit_packing_compress(p_list)
-            length = ceil(len(bit_packing_string) / 8)
-            while (len(bit_packing_string) < length * 8):
+            while (len(bit_packing_string) < leng * 8):
                 bit_packing_string += '0'
-            p_bytes += pack('h', length)
-            for i in range(length):
+            stream.encode(leng, 16)
+            for i in range(leng):
                 bf = int(bit_packing_string[i * 8: (i + 1) * 8], 2)
-                p_bytes += pack('B', bf)
-            p_begin_bytes += p_bytes
-        # p_begin_bytes = gzip.compress(p_begin_bytes)
+                stream.encode(bf, 8)
 
-        stream.encode(len(p_begin_bytes), 16)
-        for byte in p_begin_bytes:
-            stream.encode(byte, 8)
-
-        p_delta_bytes = bytes()
         for i in range(max(int((len(p_delta_list) - 1) / encoding_block), 1)):
-            p_bytes = bytes()
             p_list = p_delta_list[i * encoding_block : (i+1) * encoding_block]
             bit_packing_string = bit_packing_compress(p_list)
-            length = ceil(len(bit_packing_string) / 8)
-            while (len(bit_packing_string) < length * 8):
+            leng = ceil(len(bit_packing_string) / 8)
+            while (len(bit_packing_string) < leng * 8):
                 bit_packing_string += '0'
-            p_bytes += pack('h', length)
-            for i in range(length):
+            stream.encode(leng, 16)
+            for i in range(leng):
                 bf = int(bit_packing_string[i * 8: (i + 1) * 8], 2)
-                # print("bf:",bf)
-                p_bytes += pack('B', bf)
-            p_delta_bytes += p_bytes
-        # p_delta_bytes = gzip.compress(p_delta_bytes)
+                stream.encode(bf, 8)
 
-        stream.encode(len(p_delta_bytes), 16)
-        for byte in p_delta_bytes:
-            stream.encode(byte, 8)
+    # print("position:",newOutArray.length(stream) - stream_length)
+    # stream_length = newOutArray.length(stream)
 
     # encoding strings
     sub_string = ''
@@ -200,29 +178,21 @@ def get_encoding_byte_array(df, output_path, compressor):
     sub_string_1 = df1['sub_string'].tolist()
     for s in sub_string_1:
         sub_string += s
-    
-    # string_compress = lzma.compress(sub_string.encode())
-
-    # for byte in string_compress:
-    #     stream.encode(byte, 8)
 
     for byte in sub_string.encode():
         stream.encode(byte, 8)
-    
 
-    if compressor not in ["lzma", "gzip", "zstd"]:
-        print("This general compressor is not currently supported, or the compressor name is wrong. lzma is automatically used for compression.")
-        compressor = "lzma"
+    # print("string:",newOutArray.length(stream) - stream_length)
+    # stream_length = newOutArray.length(stream)
+    
     stream.write(output_path, mode="ab", compressor=compressor)
 
     return 
-    # return stream
 
 
 def main_encoding_compress(input_path, output_path, window_size= 8, log_length = 256, 
                            threshold = 0.035, block_size = 32768, compressor="lzma"):
     t = perf_counter()
-    q = deque()
 
     new_line_flag = 0
     
@@ -235,21 +205,14 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
     stream.encode(block_size, 16)
     stream.write(output_path)
 
-    df = pd.DataFrame(columns=('method',
-                               'another_line',
-                               'begin', 
-                               'operation_size', 
-                               'position_list', 
-                               'd_length', 
-                               'i_length', 
-                               'sub_string'))
-
     loop_end = False
     block_cnt = 0
 
     while (True):
         if loop_end:
             break
+
+        print("Block", block_cnt, "is being compressed.")
 
         line_flag = []
         line_list = []
@@ -272,31 +235,60 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
             line_list.append(line)
             line_flag.append(0)
             index += 1
-        
-        for line in line_list:
 
+        buckets = []
+        bucket_cnt = 0
+        bucket_index_list = []
+
+        # get bucket
+        for line in line_list:
             # data init
             distance = 1
-            begin = -1
+            bucket_index = -1
 
             # estimating the begin of min edit distance
-            for i in range(len(q)):
-                tmpd = cosQgramDistance(q[i], line)
+            for i in range(bucket_cnt):
+                tmpd = cosQgramDistance(buckets[i][-1], line)
                 if (tmpd < distance):
                     distance = tmpd
-                    begin = i
+                    bucket_index = i
 
-            if (begin == -1 or distance >= threshold):
-                df = pd.concat([df,pd.DataFrame({'method':[1],
-                                                 'another_line':[new_line_flag],
-                                                 'sub_string':[line]})], ignore_index=True)
+            if (bucket_index == -1 or distance >= threshold):
+                buckets.append([line])
+                bucket_cnt += 1
+                bucket_index_list.append(bucket_cnt)
+                # print(bucket_cnt)
             else:
-                op_list, new_distance = get_Qgram_match_oplist(q[begin], line, 3)
-                if (new_distance > len(line)):
+                buckets[bucket_index].append(line)
+                bucket_index_list.append(bucket_index)
+        
+        line_sum = 0
+        for b in buckets:
+            line_sum += len(b)
+        print(line_sum, "lines are devided into", bucket_cnt, "buckets.")
+
+        df = pd.DataFrame(columns=('method',
+                                   'another_line',
+                                   'operation_size', 
+                                   'position_list', 
+                                   'd_length', 
+                                   'i_length', 
+                                   'sub_string'))
+
+        for i in range(bucket_cnt):
+
+            encoding_bucket = buckets[i]
+            # print(i)
+
+            for j in range(len(encoding_bucket)):
+                line = encoding_bucket[j]
+                if j == 0:
                     df = pd.concat([df,pd.DataFrame({'method':[1],
                                                      'another_line':[new_line_flag],
                                                      'sub_string':[line]})], ignore_index=True)
                 else:
+                    # print(encoding_bucket[j])
+                    op_list, new_distance = get_Qgram_match_oplist(encoding_bucket[j-1], line, 3)
                     operation_size = len(op_list)
                     position_list = []
                     d_length = []
@@ -309,23 +301,14 @@ def main_encoding_compress(input_path, output_path, window_size= 8, log_length =
                         sub_string.append(op[3])
                     df2 = pd.DataFrame({'method':[0],
                                         'another_line':[new_line_flag],
-                                        'begin':[begin], 
                                         'operation_size':[operation_size], 
                                         'position_list':[position_list], 
                                         'd_length':[d_length],
                                         'i_length':[i_length], 
                                         'sub_string':[sub_string]})
-
                     df = pd.concat([df, df2], ignore_index=True)
-            
 
-            if (len(q) < window_size):
-                q.append(line)
-            else:
-                q.popleft()
-                q.append(line)
-
-        get_encoding_byte_array(df, output_path, compressor)
+        get_encoding_byte_array(bucket_index_list, df, output_path, compressor)
         block_cnt += 1
 
     t = perf_counter() - t
