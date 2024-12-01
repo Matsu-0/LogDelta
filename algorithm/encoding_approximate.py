@@ -99,42 +99,38 @@ def get_encoding_byte_array(df, output_path, compressor):
         for byte in operation_bytes:
             stream.encode(byte, 8)
 
-    # encode length by bit packing and gzip
+
+    # encode length by bit packing
     d_length = df0['d_length'].tolist()
     i_length = df0['i_length'].tolist()
     length_list = d_length + i_length
 
-    length_bytes = bytes()
+    # print(length_list)
     if len(length_list) == 0:
-        stream.encode(0 ,16)
+        stream.encode(0, 16)
     else:
         leng_list = []
         for length in length_list:
             for l in length:
                 leng_list.append(l)
 
+        # print(len(leng_list))
+        
         for i in range(max(int((len(leng_list) - 1) / encoding_block), 1)):
-            l_bytes = bytes()
             l_list = leng_list[i * encoding_block: (i + 1) * encoding_block]
             bit_packing_string = bit_packing_compress(l_list)
-            length = ceil(len(bit_packing_string) / 8)
-            while (len(bit_packing_string) < length * 8):
+            leng = ceil(len(bit_packing_string) / 8)
+            while (len(bit_packing_string) < leng * 8):
                 bit_packing_string += '0'
-            l_bytes += pack('H', length)
-            stream.encode(length, 16)
-            for i in range(length):
+            stream.encode(leng, 16)
+            for i in range(leng):
                 bf = int(bit_packing_string[i * 8: (i + 1) * 8], 2)
-                l_bytes += pack('B', bf)
+                stream.encode(bf, 8)
 
-            length_bytes += l_bytes
-        length_bytes = gzip.compress(length_bytes)
 
-        stream.encode(len(length_bytes), 16)
-        for byte in length_bytes:
-            stream.encode(byte, 8)
-
-    # encode position by bit packing and gzip
+    # encode position by bit packing
     position_list = df0['position_list'].tolist()
+    # print(len(position_list))
     if len(position_list) == 0:
         stream.encode(0, 16)
     else:
@@ -149,45 +145,28 @@ def get_encoding_byte_array(df, output_path, compressor):
                     p_delta_list.append(p - oldp)
                 oldp = p
 
-        p_begin_bytes = bytes()
-
-        for i in range(max(int((len(p_begin_list) - 1) / encoding_block), 1)):
-            p_bytes = bytes()
+        block_num = ceil(len(p_begin_list) / encoding_block)
+        stream.encode(block_num, 16)
+        for i in range(block_num):
             p_list = p_begin_list[i * encoding_block : (i+1) * encoding_block]
             bit_packing_string = bit_packing_compress(p_list)
-            length = ceil(len(bit_packing_string) / 8)
-            while (len(bit_packing_string) < length * 8):
+            while (len(bit_packing_string) < leng * 8):
                 bit_packing_string += '0'
-            p_bytes += pack('h', length)
-            for i in range(length):
+            stream.encode(leng, 16)
+            for i in range(leng):
                 bf = int(bit_packing_string[i * 8: (i + 1) * 8], 2)
-                p_bytes += pack('B', bf)
-            p_begin_bytes += p_bytes
-        # p_begin_bytes = gzip.compress(p_begin_bytes)
+                stream.encode(bf, 8)
 
-        stream.encode(len(p_begin_bytes), 16)
-        for byte in p_begin_bytes:
-            stream.encode(byte, 8)
-
-        p_delta_bytes = bytes()
         for i in range(max(int((len(p_delta_list) - 1) / encoding_block), 1)):
-            p_bytes = bytes()
             p_list = p_delta_list[i * encoding_block : (i+1) * encoding_block]
             bit_packing_string = bit_packing_compress(p_list)
-            length = ceil(len(bit_packing_string) / 8)
-            while (len(bit_packing_string) < length * 8):
+            leng = ceil(len(bit_packing_string) / 8)
+            while (len(bit_packing_string) < leng * 8):
                 bit_packing_string += '0'
-            p_bytes += pack('h', length)
-            for i in range(length):
+            stream.encode(leng, 16)
+            for i in range(leng):
                 bf = int(bit_packing_string[i * 8: (i + 1) * 8], 2)
-                # print("bf:",bf)
-                p_bytes += pack('B', bf)
-            p_delta_bytes += p_bytes
-        # p_delta_bytes = gzip.compress(p_delta_bytes)
-
-        stream.encode(len(p_delta_bytes), 16)
-        for byte in p_delta_bytes:
-            stream.encode(byte, 8)
+                stream.encode(bf, 8)
 
     # encoding strings
     sub_string = ''
@@ -200,19 +179,13 @@ def get_encoding_byte_array(df, output_path, compressor):
     sub_string_1 = df1['sub_string'].tolist()
     for s in sub_string_1:
         sub_string += s
-    
-    # string_compress = lzma.compress(sub_string.encode())
-
-    # for byte in string_compress:
-    #     stream.encode(byte, 8)
 
     for byte in sub_string.encode():
         stream.encode(byte, 8)
-    
 
-    if compressor not in ["lzma", "gzip", "zstd"]:
-        print("This general compressor is not currently supported, or the compressor name is wrong. lzma is automatically used for compression.")
-        compressor = "lzma"
+    # print("string:",newOutArray.length(stream) - stream_length)
+    # stream_length = newOutArray.length(stream)
+    
     stream.write(output_path, mode="ab", compressor=compressor)
 
     return 
