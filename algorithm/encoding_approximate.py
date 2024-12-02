@@ -63,7 +63,7 @@ def get_encoding_byte_array(df, output_path, compressor):
     else:
         bit_packing_string = bit_packing_compress(begins)
         leng = ceil(len(bit_packing_string) / 8)
-        while (len(bit_packing_string) < length * 8):
+        while (len(bit_packing_string) < leng * 8):
             bit_packing_string += '0'
         stream.encode(leng, 16)
         for i in range(leng):
